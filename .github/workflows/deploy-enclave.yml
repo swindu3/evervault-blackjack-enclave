@@ -3,6 +3,14 @@ name: Deploy Enclave
 on:
   push:
     branches: [main]
+    paths:
+      - "Dockerfile"
+      - "server.js"
+      - "package.json"
+      - "public/**"
+      - "enclave.toml"
+      - "cert.pem"
+      - ".github/workflows/deploy-enclave.yml"
   workflow_dispatch: {}
 
 jobs:
@@ -24,4 +32,4 @@ jobs:
         env:
           EV_API_KEY: ${{ secrets.EV_API_KEY }}
           EV_APP_UUID: ${{ secrets.EV_APP_UUID }}
-        run: ev enclave deploy -v
+        run: ev enclave deploy -v --reproducible
