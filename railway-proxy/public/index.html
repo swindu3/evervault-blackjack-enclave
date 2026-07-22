@@ -53,11 +53,31 @@
   #standBtn { background: #e74c3c; color: #fff; }
   #newGameBtn { background: #3498db; color: #fff; }
   button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .attestation {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8rem;
+    padding: 0.5rem 0.9rem;
+    border-radius: 999px;
+    margin-bottom: 1.5rem;
+    max-width: 90vw;
+  }
+  .attestation.pending { background: #3a4a3f; color: #cfe9db; }
+  .attestation.ok { background: #164a2c; color: #7ee2a8; border: 1px solid #2f9d5c; }
+  .attestation.fail { background: #4a1616; color: #ff9d9d; border: 1px solid #a83232; }
+  .attestation .pcr {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    opacity: 0.75;
+    overflow-wrap: anywhere;
+  }
 </style>
 </head>
 <body>
   <h1>Blackjack</h1>
   <div class="subtitle">running inside an Evervault Enclave</div>
+
+  <div class="attestation pending" id="attestationBadge">Checking Enclave attestation…</div>
 
   <div class="table">
     <div class="hand-label">Dealer</div>
@@ -141,6 +161,25 @@
     document.getElementById("standBtn").addEventListener("click", () => action("/api/stand"));
     document.getElementById("newGameBtn").addEventListener("click", newGame);
 
+    async function checkAttestation() {
+      const badge = document.getElementById("attestationBadge");
+      try {
+        const res = await fetch("/api/attestation-status");
+        const data = await res.json();
+        if (data.attested) {
+          badge.className = "attestation ok";
+          badge.innerHTML = `🔒 Verified — running untampered in Enclave <span class="pcr">${data.enclave}</span> · PCR0 <span class="pcr">${data.pcr0.slice(0, 16)}…</span>`;
+        } else {
+          badge.className = "attestation fail";
+          badge.textContent = `⚠ Attestation failed: ${data.error}`;
+        }
+      } catch (err) {
+        badge.className = "attestation fail";
+        badge.textContent = "⚠ Could not reach attestation status endpoint";
+      }
+    }
+
+    checkAttestation();
     newGame();
   </script>
 </body>
