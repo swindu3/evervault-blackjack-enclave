@@ -29,7 +29,27 @@ jobs:
         run: echo "$EV_SIGNING_KEY_B64" | base64 -d > key.pem
 
       - name: Build and deploy Enclave
+        id: deploy
         env:
           EV_API_KEY: ${{ secrets.EV_API_KEY }}
           EV_APP_UUID: ${{ secrets.EV_APP_UUID }}
-        run: ev enclave deploy -v --reproducible
+        run: |
+          ev enclave deploy -v --reproducible 2>&1 | tee deploy.log
+          measurements=$(grep -o '{"enclaveDomain".*"status":"success"}' deploy.log | tail -n1)
+          echo "pcr0=$(jq -r '.measurements.PCR0' <<< "$measurements")" >> "$GITHUB_OUTPUT"
+          echo "pcr1=$(jq -r '.measurements.PCR1' <<< "$measurements")" >> "$GITHUB_OUTPUT"
+          echo "pcr2=$(jq -r '.measurements.PCR2' <<< "$measurements")" >> "$GITHUB_OUTPUT"
+          echo "pcr8=$(jq -r '.measurements.PCR8' <<< "$measurements")" >> "$GITHUB_OUTPUT"
+
+      - name: Sync PCRs to Railway proxy
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          curl -fsSL https://railway.com/install.sh | bash
+          export PATH="$HOME/.railway/bin:$PATH"
+          railway variable set \
+            PCR0="${{ steps.deploy.outputs.pcr0 }}" \
+            PCR1="${{ steps.deploy.outputs.pcr1 }}" \
+            PCR2="${{ steps.deploy.outputs.pcr2 }}" \
+            PCR8="${{ steps.deploy.outputs.pcr8 }}" \
+            --service railway-proxy
