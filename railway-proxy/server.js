@@ -10,6 +10,9 @@ const ENCLAVE_URL = process.env.ENCLAVE_URL;
 const EV_API_KEY = process.env.EV_API_KEY;
 const EV_APP_UUID = process.env.EV_APP_UUID;
 const ENCLAVE_NAME = process.env.ENCLAVE_NAME || "blackjack-enclave";
+const REPO_URL = process.env.REPO_URL || null;
+const COMMIT_SHA = process.env.COMMIT_SHA || null;
+const HEARTBEAT_INTERVAL_MS = 30_000;
 
 const PINNED_PCRS = {
   pcr0: process.env.PCR0,
@@ -32,23 +35,49 @@ const evervault = new Evervault(EV_APP_UUID, EV_API_KEY);
 let enclaveAgent = null;
 let attestationStatus = { attested: false, error: "Attestation not yet performed" };
 
+function baseStatusFields() {
+  return {
+    enclave: ENCLAVE_NAME,
+    enclaveUrl: ENCLAVE_URL,
+    pcr0: PINNED_PCRS.pcr0,
+    pcr1: PINNED_PCRS.pcr1,
+    pcr2: PINNED_PCRS.pcr2,
+    pcr8: PINNED_PCRS.pcr8,
+    commitSha: COMMIT_SHA,
+    commitUrl: REPO_URL && COMMIT_SHA ? `${REPO_URL.replace(/\/$/, "")}/commit/${COMMIT_SHA}` : null,
+  };
+}
+
+// Every https request made through enclaveAgent is attested on its TLS handshake, so this
+// heartbeat is a genuine live re-check (not a cached flag) -- it proves the connection is
+// still attesting successfully even when no one is actively playing.
+async function heartbeat() {
+  try {
+    await axios.get(`${ENCLAVE_URL}/healthz`, {
+      httpsAgent: enclaveAgent,
+      headers: { "Api-Key": EV_API_KEY },
+    });
+    attestationStatus = { ...baseStatusFields(), attested: true, verifiedAt: new Date().toISOString() };
+  } catch (err) {
+    attestationStatus = { ...baseStatusFields(), attested: false, error: err.message };
+    console.error("Enclave attestation heartbeat FAILED:", err.message);
+  }
+}
+
 async function initAttestation() {
   try {
     enclaveAgent = await evervault.createEnclaveHttpsAgent(
       { [ENCLAVE_NAME]: PINNED_PCRS },
       AttestationBindings
     );
-    await axios.get(`${ENCLAVE_URL}/healthz`, {
-      httpsAgent: enclaveAgent,
-      headers: { "Api-Key": EV_API_KEY },
-    });
-    attestationStatus = { attested: true, enclave: ENCLAVE_NAME, pcr0: PINNED_PCRS.pcr0 };
-    console.log("Enclave attestation verified on startup");
   } catch (err) {
-    enclaveAgent = null;
-    attestationStatus = { attested: false, error: err.message };
-    console.error("Enclave attestation FAILED:", err.message);
+    attestationStatus = { ...baseStatusFields(), attested: false, error: err.message };
+    console.error("Enclave attestation agent setup FAILED:", err.message);
+    return;
   }
+  await heartbeat();
+  console.log(`Enclave attestation ${attestationStatus.attested ? "verified" : "FAILED"} on startup`);
+  setInterval(heartbeat, HEARTBEAT_INTERVAL_MS);
 }
 
 initAttestation();
@@ -60,7 +89,7 @@ app.get("/api/attestation-status", (req, res) => {
 });
 
 app.use("/api", async (req, res) => {
-  if (!enclaveAgent) {
+  if (!enclaveAgent || !attestationStatus.attested) {
     return res.status(503).json({ error: "Enclave attestation has not succeeded; refusing to forward request" });
   }
 

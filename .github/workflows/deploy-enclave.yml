@@ -52,4 +52,5 @@ jobs:
             PCR1="${{ steps.deploy.outputs.pcr1 }}" \
             PCR2="${{ steps.deploy.outputs.pcr2 }}" \
             PCR8="${{ steps.deploy.outputs.pcr8 }}" \
+            COMMIT_SHA="${{ github.sha }}" \
             --service railway-proxy
