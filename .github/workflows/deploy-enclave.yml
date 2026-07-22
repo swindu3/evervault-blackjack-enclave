@@ -1,0 +1,22 @@
+name: Deploy Enclave
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Evervault CLI
+        run: curl https://cli.evervault.com/v4/install -sL | sh
+
+      - name: Build and deploy Enclave
+        env:
+          EV_API_KEY: ${{ secrets.EV_API_KEY }}
+          EV_APP_UUID: ${{ secrets.EV_APP_UUID }}
+        run: ev enclave deploy -v

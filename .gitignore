@@ -1,0 +1,7 @@
+.env
+node_modules/
+*.eif
+key.pem
+.claude/
+enclave.Dockerfile
+nitro-cli-image.Dockerfile

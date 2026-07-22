@@ -1,0 +1,19 @@
+version = 1
+name = "blackjack-enclave"
+uuid = "enclave_363fc4757bf3"
+app_uuid = "app_16ddc6097f46"
+team_uuid = "team_cd0a45c62e0e"
+debug = false
+dockerfile = "./Dockerfile"
+api_key_auth = true
+trx_logging = true
+tls_termination = true
+forward_proxy_protocol = false
+trusted_headers = []
+
+[egress]
+enabled = false
+
+[signing]
+certPath = "./cert.pem"
+keyPath = "./key.pem"
