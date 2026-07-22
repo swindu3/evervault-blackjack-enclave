@@ -15,6 +15,11 @@ jobs:
       - name: Install Evervault CLI
         run: curl https://cli.evervault.com/v4/install -sL | sh
 
+      - name: Restore signing key
+        env:
+          EV_SIGNING_KEY_B64: ${{ secrets.EV_SIGNING_KEY_B64 }}
+        run: echo "$EV_SIGNING_KEY_B64" | base64 -d > key.pem
+
       - name: Build and deploy Enclave
         env:
           EV_API_KEY: ${{ secrets.EV_API_KEY }}
