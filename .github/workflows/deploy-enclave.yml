@@ -22,6 +22,9 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -33,6 +36,17 @@ jobs:
         env:
           EV_SIGNING_KEY_B64: ${{ secrets.EV_SIGNING_KEY_B64 }}
         run: echo "$EV_SIGNING_KEY_B64" | base64 -d > key.pem
+
+      - name: Build and push app image to GHCR
+        if: ${{ github.event.inputs.redeploy_run_id == '' }}
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          docker build \
+            -t ghcr.io/swindu3/evervault-blackjack-enclave:${{ github.sha }} \
+            -t ghcr.io/swindu3/evervault-blackjack-enclave:latest \
+            .
+          docker push ghcr.io/swindu3/evervault-blackjack-enclave:${{ github.sha }}
+          docker push ghcr.io/swindu3/evervault-blackjack-enclave:latest
 
       - name: Download previously-built EIF for redeploy
         if: ${{ github.event.inputs.redeploy_run_id != '' }}
