@@ -20,7 +20,9 @@ railway up --detach \
   --project 71f5371d-a1da-4a25-a973-94f900613586 \
   --environment 9a295dd5-29d2-43f0-899c-30002be41d9b
 
-# 3. Verify both are live
+# 3. Verify both are live (enclave cold start takes ~90s from 0 replicas -- poll, don't
+#    assume failure immediately; and expect the first attestation heartbeat after a cold
+#    boot to sometimes throw a transient SDK error that clears on the next 30s cycle)
 curl https://blackjack-enclave.app-16ddc6097f46.enclave.evervault.com/healthz -H "Api-Key: $EV_API_KEY"
 curl https://railway-proxy-production-a520.up.railway.app/api/attestation-status
 ```
