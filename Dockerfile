@@ -1,7 +1,7 @@
 FROM node:20-slim
 
-COPY package.json /app/package.json
-RUN cd /app && npm install --omit=dev
+COPY package.json package-lock.json /app/
+RUN cd /app && npm ci --omit=dev
 
 COPY server.js /app/server.js
 COPY public /app/public
