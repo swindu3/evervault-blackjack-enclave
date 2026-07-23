@@ -219,6 +219,7 @@
       const data = await res.json();
       setSessionId(data.sessionId);
       render(data.state);
+      checkAttestation();
     }
 
     async function action(path) {
@@ -232,6 +233,7 @@
       }
       const data = await res.json();
       render(data.state);
+      checkAttestation();
     }
 
     document.getElementById("hitBtn").addEventListener("click", () => action("/api/hit"));
@@ -294,6 +296,9 @@
           if (data.commitUrl) {
             links.push(`<a href="${data.commitUrl}" target="_blank" rel="noopener">View source commit →</a>`);
           }
+          if (data.ghcrUrl) {
+            links.push(`<a href="${data.ghcrUrl}" target="_blank" rel="noopener">View container image →</a>`);
+          }
           if (links.length) {
             fields.innerHTML += `<div class="links">${links.join("")}</div>`;
           }
@@ -314,7 +319,6 @@
     }
 
     checkAttestation();
-    setInterval(checkAttestation, 10000);
     setInterval(refreshFreshnessLabel, 1000);
     newGame();
   </script>

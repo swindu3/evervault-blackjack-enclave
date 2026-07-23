@@ -12,7 +12,8 @@ const EV_APP_UUID = process.env.EV_APP_UUID;
 const ENCLAVE_NAME = process.env.ENCLAVE_NAME || "blackjack-enclave";
 const REPO_URL = process.env.REPO_URL || null;
 const COMMIT_SHA = process.env.COMMIT_SHA || null;
-const HEARTBEAT_INTERVAL_MS = 30_000;
+const GHCR_IMAGE = process.env.GHCR_IMAGE || null;
+const GHCR_PACKAGE_URL = process.env.GHCR_PACKAGE_URL || null;
 
 const PINNED_PCRS = {
   pcr0: process.env.PCR0,
@@ -45,23 +46,9 @@ function baseStatusFields() {
     pcr8: PINNED_PCRS.pcr8,
     commitSha: COMMIT_SHA,
     commitUrl: REPO_URL && COMMIT_SHA ? `${REPO_URL.replace(/\/$/, "")}/commit/${COMMIT_SHA}` : null,
+    ghcrUrl: GHCR_PACKAGE_URL,
+    ghcrPullCommand: GHCR_IMAGE && COMMIT_SHA ? `docker pull ${GHCR_IMAGE}:${COMMIT_SHA}` : null,
   };
-}
-
-// Every https request made through enclaveAgent is attested on its TLS handshake, so this
-// heartbeat is a genuine live re-check (not a cached flag) -- it proves the connection is
-// still attesting successfully even when no one is actively playing.
-async function heartbeat() {
-  try {
-    await axios.get(`${ENCLAVE_URL}/healthz`, {
-      httpsAgent: enclaveAgent,
-      headers: { "Api-Key": EV_API_KEY },
-    });
-    attestationStatus = { ...baseStatusFields(), attested: true, verifiedAt: new Date().toISOString() };
-  } catch (err) {
-    attestationStatus = { ...baseStatusFields(), attested: false, error: err.message };
-    console.error("Enclave attestation heartbeat FAILED:", err.message);
-  }
 }
 
 async function initAttestation() {
@@ -75,9 +62,21 @@ async function initAttestation() {
     console.error("Enclave attestation agent setup FAILED:", err.message);
     return;
   }
-  await heartbeat();
+
+  // Every https request made through enclaveAgent is attested on its TLS handshake, so this
+  // startup check is a genuine live check -- it confirms the connection attests successfully
+  // before any player interacts. After this, status is only updated by real game requests
+  // (see the /api handler below), not on a timer.
+  try {
+    await axios.get(`${ENCLAVE_URL}/healthz`, {
+      httpsAgent: enclaveAgent,
+      headers: { "Api-Key": EV_API_KEY },
+    });
+    attestationStatus = { ...baseStatusFields(), attested: true, verifiedAt: new Date().toISOString() };
+  } catch (err) {
+    attestationStatus = { ...baseStatusFields(), attested: false, error: err.message };
+  }
   console.log(`Enclave attestation ${attestationStatus.attested ? "verified" : "FAILED"} on startup`);
-  setInterval(heartbeat, HEARTBEAT_INTERVAL_MS);
 }
 
 initAttestation();
@@ -89,8 +88,8 @@ app.get("/api/attestation-status", (req, res) => {
 });
 
 app.use("/api", async (req, res) => {
-  if (!enclaveAgent || !attestationStatus.attested) {
-    return res.status(503).json({ error: "Enclave attestation has not succeeded; refusing to forward request" });
+  if (!enclaveAgent) {
+    return res.status(503).json({ error: "Enclave attestation agent failed to initialize; refusing to forward request" });
   }
 
   const url = ENCLAVE_URL.replace(/\/$/, "") + "/api" + req.url;
@@ -106,8 +105,10 @@ app.use("/api", async (req, res) => {
       httpsAgent: enclaveAgent,
       validateStatus: () => true,
     });
+    attestationStatus = { ...baseStatusFields(), attested: true, verifiedAt: new Date().toISOString() };
     res.status(upstream.status).json(upstream.data);
   } catch (err) {
+    attestationStatus = { ...baseStatusFields(), attested: false, error: err.message };
     res.status(502).json({ error: "Attested connection to Enclave failed: " + err.message });
   }
 });
