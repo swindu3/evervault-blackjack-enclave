@@ -5,6 +5,7 @@ const Evervault = require("@evervault/sdk");
 const AttestationBindings = require("@evervault/attestation-bindings");
 
 const app = express();
+app.use(express.json());
 const PORT = process.env.PORT || 3000;
 const ENCLAVE_URL = process.env.ENCLAVE_URL;
 const EV_API_KEY = process.env.EV_API_KEY;
@@ -102,6 +103,7 @@ app.use("/api", async (req, res) => {
       url,
       method: req.method,
       headers,
+      data: req.body,
       httpsAgent: enclaveAgent,
       validateStatus: () => true,
     });
