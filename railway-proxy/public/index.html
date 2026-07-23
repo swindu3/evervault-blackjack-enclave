@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>Blackjack — Evervault Enclave</title>
+<title>Blackjack — Secure Enclave</title>
 <style>
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -265,7 +265,7 @@
 </head>
 <body>
   <h1>Blackjack</h1>
-  <div class="subtitle">running inside an Evervault Enclave</div>
+  <div class="subtitle">running inside a secure enclave</div>
 
   <div class="attestation-wrap">
     <div class="attestation-badge pending" id="attestationBadge">
@@ -275,7 +275,7 @@
     <div class="attestation-detail" id="attestationDetail">
       <dl id="attestationFields"></dl>
       <div class="explainer">
-        <a href="https://docs.evervault.com/enclaves" target="_blank" rel="noopener">What does this mean?</a>
+        <a href="https://docs.aws.amazon.com/enclaves/latest/user/nitro-enclave-concepts.html" target="_blank" rel="noopener">What does this mean?</a>
         — every connection to the Enclave is checked against these PCR measurements during the TLS
         handshake, proving the exact code above (not a substitute) is what's running.
       </div>
