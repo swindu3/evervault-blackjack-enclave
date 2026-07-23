@@ -245,6 +245,22 @@
     border-radius: 8px;
     overflow-wrap: anywhere;
   }
+
+  .broke-banner {
+    display: none;
+    width: 100%;
+    max-width: 520px;
+    margin-top: 1.5rem;
+    background: #4a3a16;
+    border: 1px solid #d4a72c;
+    border-radius: 12px;
+    padding: 1rem 1.2rem;
+    text-align: center;
+    font-size: 0.95rem;
+    color: #ffe9a8;
+    line-height: 1.6;
+  }
+  .broke-banner strong { color: #f1c40f; }
 </style>
 </head>
 <body>
@@ -297,7 +313,13 @@
     </div>
   </div>
 
-  <details class="fairness">
+  <div class="broke-banner" id="brokeBanner">
+    😅 <strong>Verifiably, you suck at Blackjack.</strong><br />
+    The good news: you can make sure nothing funny is happening in the code that just took your
+    last dollar — here's how ↓
+  </div>
+
+  <details class="fairness" id="fairnessPanel">
     <summary>How do I know this isn't rigged?</summary>
     <div class="fairness-body">
       Normally you'd just have to trust the casino didn't stack the deck. Here you don't have to —
@@ -437,6 +459,21 @@
       el.classList.toggle("down", balance < 100);
       betInput.max = Math.max(1, balance);
       if (Number(betInput.value) > balance) betInput.value = balance;
+
+      const broke = balance <= 0;
+      document.getElementById("newGameBtn").disabled = broke;
+      betInput.disabled = betInput.disabled || broke;
+      document.querySelectorAll(".bet-chip").forEach((btn) => (btn.disabled = btn.disabled || broke));
+
+      const banner = document.getElementById("brokeBanner");
+      if (broke && banner.style.display !== "block") {
+        banner.style.display = "block";
+        const fairness = document.getElementById("fairnessPanel");
+        fairness.open = true;
+        banner.scrollIntoView({ behavior: "smooth", block: "start" });
+      } else if (!broke) {
+        banner.style.display = "none";
+      }
     }
 
     async function newGame() {
