@@ -7,8 +7,10 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
 const PORT = process.env.PORT || 8008;
+const STARTING_BALANCE = 100;
+const BET = 10;
 
-const games = new Map();
+const players = new Map();
 
 const SUITS = ["hearts", "diamonds", "clubs", "spades"];
 const RANKS = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"];
@@ -47,7 +49,7 @@ function handValue(hand) {
   return total;
 }
 
-function newGame() {
+function newGame(player) {
   const deck = buildDeck();
   const playerHand = [deck.pop(), deck.pop()];
   const dealerHand = [deck.pop(), deck.pop()];
@@ -55,11 +57,12 @@ function newGame() {
   if (handValue(playerHand) === 21) {
     game.status = "player-blackjack";
     game.message = "Blackjack! You win.";
+    player.balance += Math.round(BET * 1.5);
   }
   return game;
 }
 
-function dealerPlay(game) {
+function dealerPlay(game, player) {
   while (handValue(game.dealerHand) < 17) {
     game.dealerHand.push(game.deck.pop());
   }
@@ -68,12 +71,15 @@ function dealerPlay(game) {
   if (dealerTotal > 21) {
     game.status = "dealer-bust";
     game.message = "Dealer busts. You win.";
+    player.balance += BET;
   } else if (dealerTotal > playerTotal) {
     game.status = "dealer-win";
     game.message = "Dealer wins.";
+    player.balance -= BET;
   } else if (dealerTotal < playerTotal) {
     game.status = "player-win";
     game.message = "You win.";
+    player.balance += BET;
   } else {
     game.status = "push";
     game.message = "Push.";
@@ -97,44 +103,49 @@ function getSessionId(req) {
 }
 
 app.post("/api/new-game", (req, res) => {
-  const sessionId = crypto.randomUUID();
-  const game = newGame();
-  games.set(sessionId, game);
-  res.json({ sessionId, state: serialize(game) });
+  let sessionId = getSessionId(req);
+  let player = sessionId && players.get(sessionId);
+  if (!player) {
+    sessionId = crypto.randomUUID();
+    player = { balance: STARTING_BALANCE };
+    players.set(sessionId, player);
+  }
+  player.game = newGame(player);
+  res.json({ sessionId, state: serialize(player.game), balance: player.balance });
 });
 
 app.post("/api/hit", (req, res) => {
-  const sessionId = getSessionId(req);
-  const game = games.get(sessionId);
-  if (!game) return res.status(404).json({ error: "No active game for session" });
-  if (game.status !== "in-progress") return res.json({ state: serialize(game) });
+  const player = players.get(getSessionId(req));
+  if (!player) return res.status(404).json({ error: "No active game for session" });
+  const game = player.game;
+  if (game.status !== "in-progress") return res.json({ state: serialize(game), balance: player.balance });
 
   game.playerHand.push(game.deck.pop());
   const total = handValue(game.playerHand);
   if (total > 21) {
     game.status = "player-bust";
     game.message = "Bust! Dealer wins.";
+    player.balance -= BET;
   } else if (total === 21) {
-    dealerPlay(game);
+    dealerPlay(game, player);
   }
-  res.json({ state: serialize(game) });
+  res.json({ state: serialize(game), balance: player.balance });
 });
 
 app.post("/api/stand", (req, res) => {
-  const sessionId = getSessionId(req);
-  const game = games.get(sessionId);
-  if (!game) return res.status(404).json({ error: "No active game for session" });
+  const player = players.get(getSessionId(req));
+  if (!player) return res.status(404).json({ error: "No active game for session" });
+  const game = player.game;
   if (game.status === "in-progress") {
-    dealerPlay(game);
+    dealerPlay(game, player);
   }
-  res.json({ state: serialize(game) });
+  res.json({ state: serialize(game), balance: player.balance });
 });
 
 app.get("/api/state", (req, res) => {
-  const sessionId = getSessionId(req);
-  const game = games.get(sessionId);
-  if (!game) return res.status(404).json({ error: "No active game for session" });
-  res.json({ state: serialize(game) });
+  const player = players.get(getSessionId(req));
+  if (!player) return res.status(404).json({ error: "No active game for session" });
+  res.json({ state: serialize(player.game), balance: player.balance });
 });
 
 app.get("/healthz", (req, res) => res.send("ok"));

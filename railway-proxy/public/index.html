@@ -39,6 +39,14 @@
   .card.red { color: #c0392b; }
   .card.hidden { background: repeating-linear-gradient(45deg, #1b6b45, #1b6b45 6px, #14502f 6px, #14502f 12px); color: transparent; }
   .totals { font-size: 0.85rem; color: #cfe9db; margin-top: -1rem; margin-bottom: 1.5rem; }
+  .balance {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #f1c40f;
+    margin-bottom: 1rem;
+    text-align: center;
+  }
+  .balance.down { color: #ff9d9d; }
   .message { font-size: 1.1rem; font-weight: 600; min-height: 1.5rem; margin-bottom: 1.5rem; text-align: center; }
   .controls { display: flex; gap: 0.75rem; justify-content: center; }
   button {
@@ -144,6 +152,8 @@
     </div>
   </div>
 
+  <div class="balance" id="balance">$100</div>
+
   <div class="table">
     <div class="hand-label">Dealer</div>
     <div class="cards" id="dealerCards"></div>
@@ -214,11 +224,21 @@
       document.getElementById("standBtn").disabled = !inProgress;
     }
 
+    function renderBalance(balance) {
+      const el = document.getElementById("balance");
+      el.textContent = "$" + balance;
+      el.classList.toggle("down", balance < 100);
+    }
+
     async function newGame() {
-      const res = await fetch("/api/new-game", { method: "POST" });
+      const res = await fetch("/api/new-game", {
+        method: "POST",
+        headers: { "x-session-id": sessionId() || "" },
+      });
       const data = await res.json();
       setSessionId(data.sessionId);
       render(data.state);
+      renderBalance(data.balance);
       checkAttestation();
     }
 
@@ -233,6 +253,7 @@
       }
       const data = await res.json();
       render(data.state);
+      renderBalance(data.balance);
       checkAttestation();
     }
 
@@ -284,9 +305,6 @@
           fields.innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("");
 
           const links = [];
-          if (data.commitUrl) {
-            links.push(`<a href="${data.commitUrl}" target="_blank" rel="noopener">View source commit →</a>`);
-          }
           if (data.ghcrUrl) {
             links.push(`<a href="${data.ghcrUrl}" target="_blank" rel="noopener">View container image →</a>`);
           }
