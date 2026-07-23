@@ -264,19 +264,10 @@
       return hash ? `${hash.slice(0, 12)}…${hash.slice(-6)}` : "n/a";
     }
 
-    let lastData = null;
-
-    function refreshFreshnessLabel() {
-      if (lastData && lastData.attested) {
-        headline.textContent = `🔒 Verified untampered · ${timeAgo(lastData.verifiedAt)}`;
-      }
-    }
-
     async function checkAttestation() {
       try {
         const res = await fetch("/api/attestation-status");
         const data = await res.json();
-        lastData = data;
 
         if (data.attested) {
           badge.className = "attestation-badge ok" + (badge.classList.contains("expanded") ? " expanded" : "");
@@ -310,7 +301,6 @@
           overlay.classList.add("show");
         }
       } catch (err) {
-        lastData = null;
         badge.className = "attestation-badge fail";
         headline.textContent = "⚠ Could not reach attestation status endpoint";
         overlayError.textContent = err.message;
@@ -319,7 +309,6 @@
     }
 
     checkAttestation();
-    setInterval(refreshFreshnessLabel, 1000);
     newGame();
   </script>
 </body>
