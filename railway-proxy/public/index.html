@@ -125,6 +125,57 @@
     font-size: 0.8rem;
   }
 
+  .business {
+    width: 100%;
+    max-width: 520px;
+    margin-top: 1rem;
+    background: #0e2f1c;
+    border: 1px solid #2f9d5c;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .business summary {
+    padding: 0.9rem 1.1rem;
+    cursor: pointer;
+    font-weight: 600;
+    color: #7ee2a8;
+    list-style: none;
+  }
+  .business summary::-webkit-details-marker { display: none; }
+  .business summary::before { content: "💼 "; }
+  .business-body {
+    padding: 0 1.1rem 1.2rem;
+    font-size: 0.85rem;
+    color: #cfe9db;
+    line-height: 1.6;
+  }
+  .business-body strong { color: #f1c40f; }
+  .business-body ul { margin: 0.5rem 0 1rem 1.1rem; padding: 0; }
+  .business-body li { margin-bottom: 0.5rem; }
+  .business-body .verticals { font-size: 0.8rem; color: #a9d8bd; }
+
+  .trust-compare {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    margin: 1rem 0;
+  }
+  .trust-col {
+    border-radius: 10px;
+    padding: 0.8rem;
+    font-size: 0.78rem;
+  }
+  .trust-col.bad { background: rgba(255, 157, 157, 0.08); border: 1px solid #a83232; }
+  .trust-col.good { background: rgba(126, 226, 168, 0.08); border: 1px solid #2f9d5c; }
+  .trust-col h4 { margin: 0 0 0.6rem; font-size: 0.8rem; }
+  .trust-col.bad h4 { color: #ff9d9d; }
+  .trust-col.good h4 { color: #7ee2a8; }
+  .trust-row { display: flex; justify-content: space-between; gap: 0.5rem; padding: 0.3rem 0; border-top: 1px solid rgba(255,255,255,0.08); }
+  .trust-row:first-of-type { border-top: none; }
+  .trust-row span:first-child { color: #cfe9db; }
+  .trust-col.bad .mark { color: #ff9d9d; font-weight: 700; }
+  .trust-col.good .mark { color: #7ee2a8; font-weight: 700; }
+
   .attestation-wrap { width: 100%; max-width: 520px; margin-bottom: 1.5rem; }
 
   .attestation-badge {
@@ -273,6 +324,50 @@
         shuffle <em>code</em> wasn't tampered with — not that every individual card order is
         independently provable after the fact. That would need an extra step (called
         "commit-reveal") that isn't built here.
+      </div>
+    </div>
+  </details>
+
+  <details class="business">
+    <summary>Why this matters for your business</summary>
+    <div class="business-body">
+      Everything above is a real, working demonstration of a broader guarantee called
+      <strong>confidential computing</strong>: code and data can run inside a sealed hardware
+      environment (a "TEE," or trusted execution environment) that's provably isolated from
+      everyone — including the company operating it.
+      <ul>
+        <li><strong>Reduced insider-threat surface.</strong> Your own engineers, ops team, cloud
+        provider, and anyone who gains server access cannot see or alter the code or data running
+        inside the enclave — even with full infrastructure access.</li>
+        <li><strong>Independently auditable, not just "trust us."</strong> Every deployment
+        publishes a cryptographic fingerprint and the exact source code, so your security team (or
+        a third-party auditor) can verify what's actually running without taking a vendor's word
+        for it.</li>
+        <li><strong>Applicable wherever you currently substitute trust for proof.</strong> Payment
+        processing, health records, proprietary ML models, and multi-party data sharing all
+        currently rely on "we promise we didn't look" — a TEE makes that a provable fact instead.</li>
+      </ul>
+
+      <div class="trust-compare">
+        <div class="trust-col bad">
+          <h4>Typical cloud app</h4>
+          <div class="trust-row"><span>Cloud provider</span><span class="mark">Can see</span></div>
+          <div class="trust-row"><span>Your ops team</span><span class="mark">Can see</span></div>
+          <div class="trust-row"><span>Attacker w/ server access</span><span class="mark">Can see</span></div>
+        </div>
+        <div class="trust-col good">
+          <h4>Confidential enclave</h4>
+          <div class="trust-row"><span>Cloud provider</span><span class="mark">Cannot see</span></div>
+          <div class="trust-row"><span>Your ops team</span><span class="mark">Cannot see</span></div>
+          <div class="trust-row"><span>Attacker w/ server access</span><span class="mark">Cannot see</span></div>
+        </div>
+      </div>
+
+      <div class="verticals">
+        This page — enclave, attestation, CI/CD pipeline, public source and container image — is
+        the entire reference implementation, built and deployed in under a day. Nothing here is a
+        slide deck; every claim above is something you just watched or can go verify yourself in
+        the panel above.
       </div>
     </div>
   </details>
