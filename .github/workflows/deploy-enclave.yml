@@ -7,11 +7,17 @@ on:
       - "Dockerfile"
       - "server.js"
       - "package.json"
+      - "package-lock.json"
       - "public/**"
       - "enclave.toml"
       - "cert.pem"
       - ".github/workflows/deploy-enclave.yml"
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      redeploy_run_id:
+        description: "Run ID of a previous build to redeploy without rebuilding (leave blank to build fresh)"
+        required: false
+        type: string
 
 jobs:
   deploy:
@@ -28,13 +34,36 @@ jobs:
           EV_SIGNING_KEY_B64: ${{ secrets.EV_SIGNING_KEY_B64 }}
         run: echo "$EV_SIGNING_KEY_B64" | base64 -d > key.pem
 
-      - name: Build and deploy Enclave
+      - name: Download previously-built EIF for redeploy
+        if: ${{ github.event.inputs.redeploy_run_id != '' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: enclave-eif
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.event.inputs.redeploy_run_id }}
+
+      - name: Build Enclave EIF
+        if: ${{ github.event.inputs.redeploy_run_id == '' }}
+        env:
+          EV_API_KEY: ${{ secrets.EV_API_KEY }}
+          EV_APP_UUID: ${{ secrets.EV_APP_UUID }}
+        run: ev enclave build -v --output . --reproducible
+
+      - name: Upload EIF as a durable build artifact
+        if: ${{ github.event.inputs.redeploy_run_id == '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: enclave-eif
+          path: enclave.eif
+          retention-days: 90
+
+      - name: Deploy Enclave
         id: deploy
         env:
           EV_API_KEY: ${{ secrets.EV_API_KEY }}
           EV_APP_UUID: ${{ secrets.EV_APP_UUID }}
         run: |
-          ev enclave deploy -v --reproducible 2>&1 | tee deploy.log
+          ev enclave deploy -v --eif-path enclave.eif 2>&1 | tee deploy.log
           measurements=$(grep -o '{"enclaveDomain".*"status":"success"}' deploy.log | tail -n1)
           echo "pcr0=$(jq -r '.measurements.PCR0' <<< "$measurements")" >> "$GITHUB_OUTPUT"
           echo "pcr1=$(jq -r '.measurements.PCR1' <<< "$measurements")" >> "$GITHUB_OUTPUT"
