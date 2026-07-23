@@ -48,6 +48,36 @@
   }
   .balance.down { color: #ff9d9d; }
   .message { font-size: 1.1rem; font-weight: 600; min-height: 1.5rem; margin-bottom: 1.5rem; text-align: center; }
+
+  .bet-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-bottom: 1.25rem;
+    flex-wrap: wrap;
+  }
+  .bet-row label { font-size: 0.85rem; color: #cfe9db; }
+  #betInput {
+    width: 70px;
+    padding: 0.4rem 0.5rem;
+    border-radius: 6px;
+    border: none;
+    font-size: 0.95rem;
+    text-align: center;
+  }
+  .bet-chip {
+    padding: 0.35rem 0.7rem;
+    border-radius: 999px;
+    border: none;
+    background: #1b6b45;
+    color: #cfe9db;
+    font-size: 0.8rem;
+    cursor: pointer;
+  }
+  .bet-chip:disabled { opacity: 0.4; cursor: not-allowed; }
+  .bet-error { color: #ff9d9d; font-size: 0.8rem; text-align: center; min-height: 1.1rem; margin-bottom: 0.5rem; }
+
   .controls { display: flex; gap: 0.75rem; justify-content: center; }
   button {
     padding: 0.6rem 1.4rem;
@@ -61,6 +91,39 @@
   #standBtn { background: #e74c3c; color: #fff; }
   #newGameBtn { background: #3498db; color: #fff; }
   button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .fairness {
+    width: 100%;
+    max-width: 520px;
+    margin-top: 1.5rem;
+    background: #0e2f1c;
+    border: 1px solid #2f9d5c;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .fairness summary {
+    padding: 0.9rem 1.1rem;
+    cursor: pointer;
+    font-weight: 600;
+    color: #7ee2a8;
+    list-style: none;
+  }
+  .fairness summary::-webkit-details-marker { display: none; }
+  .fairness summary::before { content: "❓ "; }
+  .fairness-body {
+    padding: 0 1.1rem 1.1rem;
+    font-size: 0.85rem;
+    color: #cfe9db;
+    line-height: 1.6;
+  }
+  .fairness-body strong { color: #f1c40f; }
+  .fairness-body .caveat {
+    margin-top: 0.9rem;
+    padding-top: 0.9rem;
+    border-top: 1px solid #1b6b45;
+    color: #a9d8bd;
+    font-size: 0.8rem;
+  }
 
   .attestation-wrap { width: 100%; max-width: 520px; margin-bottom: 1.5rem; }
 
@@ -154,6 +217,17 @@
 
   <div class="balance" id="balance">$100</div>
 
+  <div class="bet-row">
+    <label for="betInput">Bet:</label>
+    <input type="number" id="betInput" min="1" value="10" />
+    <button class="bet-chip" data-bet="5">$5</button>
+    <button class="bet-chip" data-bet="10">$10</button>
+    <button class="bet-chip" data-bet="25">$25</button>
+    <button class="bet-chip" data-bet="50">$50</button>
+    <button class="bet-chip" id="maxBetBtn">Max</button>
+  </div>
+  <div class="bet-error" id="betError"></div>
+
   <div class="table">
     <div class="hand-label">Dealer</div>
     <div class="cards" id="dealerCards"></div>
@@ -171,6 +245,37 @@
       <button id="newGameBtn">New Game</button>
     </div>
   </div>
+
+  <details class="fairness">
+    <summary>How do I know this isn't rigged?</summary>
+    <div class="fairness-body">
+      Normally you'd just have to trust the casino didn't stack the deck. Here you don't have to —
+      you can check.
+      <br /><br />
+      This game runs inside a sealed box called an <strong>enclave</strong>. Once it's sealed and
+      running, nobody — not even the people who built it — can quietly swap in different code
+      without it being obvious.
+      <br /><br />
+      Here's the trick: the sealed box has a <strong>fingerprint</strong> — one giant number that's
+      tied to the exact program running inside. Change even one letter of code and the fingerprint
+      comes out completely different.
+      <br /><br />
+      Every single time your browser talks to the game, it checks that fingerprint against the one
+      it already expects (pinned to the exact code posted publicly). If they don't match, your
+      browser <strong>refuses to send or receive anything</strong> — you'd see a big red warning
+      screen instead of cards. That's the badge at the top of this page, doing that check on every
+      move you make.
+      <br /><br />
+      So: you (or anyone) can read the actual source code, check the fingerprint yourself, and know
+      for certain the shuffle and rules are exactly what's published — not a secretly-swapped version.
+      <div class="caveat">
+        What this <em>doesn't</em> prove: that any one shuffle came out fair by chance. It proves the
+        shuffle <em>code</em> wasn't tampered with — not that every individual card order is
+        independently provable after the fact. That would need an extra step (called
+        "commit-reveal") that isn't built here.
+      </div>
+    </div>
+  </details>
 
   <div class="attestation-overlay" id="attestationOverlay">
     <div class="box">
@@ -211,6 +316,10 @@
       }
     }
 
+    const betInput = document.getElementById("betInput");
+    const betError = document.getElementById("betError");
+    let currentBalance = 100;
+
     function render(state) {
       renderHand(document.getElementById("dealerCards"), state.dealerHand);
       renderHand(document.getElementById("playerCards"), state.playerHand);
@@ -222,20 +331,32 @@
       const inProgress = state.status === "in-progress";
       document.getElementById("hitBtn").disabled = !inProgress;
       document.getElementById("standBtn").disabled = !inProgress;
+      betInput.disabled = inProgress;
+      document.querySelectorAll(".bet-chip").forEach((btn) => (btn.disabled = inProgress));
     }
 
     function renderBalance(balance) {
+      currentBalance = balance;
       const el = document.getElementById("balance");
       el.textContent = "$" + balance;
       el.classList.toggle("down", balance < 100);
+      betInput.max = Math.max(1, balance);
+      if (Number(betInput.value) > balance) betInput.value = balance;
     }
 
     async function newGame() {
+      betError.textContent = "";
+      const bet = Number(betInput.value);
       const res = await fetch("/api/new-game", {
         method: "POST",
-        headers: { "x-session-id": sessionId() || "" },
+        headers: { "x-session-id": sessionId() || "", "Content-Type": "application/json" },
+        body: JSON.stringify({ bet }),
       });
       const data = await res.json();
+      if (!res.ok) {
+        betError.textContent = data.error || "Invalid bet";
+        return;
+      }
       setSessionId(data.sessionId);
       render(data.state);
       renderBalance(data.balance);
@@ -260,6 +381,14 @@
     document.getElementById("hitBtn").addEventListener("click", () => action("/api/hit"));
     document.getElementById("standBtn").addEventListener("click", () => action("/api/stand"));
     document.getElementById("newGameBtn").addEventListener("click", newGame);
+    document.querySelectorAll(".bet-chip[data-bet]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        betInput.value = Math.min(Number(btn.dataset.bet), currentBalance);
+      });
+    });
+    document.getElementById("maxBetBtn").addEventListener("click", () => {
+      betInput.value = currentBalance;
+    });
 
     const badge = document.getElementById("attestationBadge");
     const headline = document.getElementById("attestationHeadline");

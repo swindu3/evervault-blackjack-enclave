@@ -8,7 +8,7 @@ app.use(express.static(path.join(__dirname, "public")));
 
 const PORT = process.env.PORT || 8008;
 const STARTING_BALANCE = 100;
-const BET = 10;
+const DEFAULT_BET = 10;
 
 const players = new Map();
 
@@ -49,15 +49,15 @@ function handValue(hand) {
   return total;
 }
 
-function newGame(player) {
+function newGame(player, bet) {
   const deck = buildDeck();
   const playerHand = [deck.pop(), deck.pop()];
   const dealerHand = [deck.pop(), deck.pop()];
-  const game = { deck, playerHand, dealerHand, status: "in-progress", message: "Your move." };
+  const game = { deck, playerHand, dealerHand, bet, status: "in-progress", message: "Your move." };
   if (handValue(playerHand) === 21) {
     game.status = "player-blackjack";
     game.message = "Blackjack! You win.";
-    player.balance += Math.round(BET * 1.5);
+    player.balance += Math.round(bet * 1.5);
   }
   return game;
 }
@@ -71,15 +71,15 @@ function dealerPlay(game, player) {
   if (dealerTotal > 21) {
     game.status = "dealer-bust";
     game.message = "Dealer busts. You win.";
-    player.balance += BET;
+    player.balance += game.bet;
   } else if (dealerTotal > playerTotal) {
     game.status = "dealer-win";
     game.message = "Dealer wins.";
-    player.balance -= BET;
+    player.balance -= game.bet;
   } else if (dealerTotal < playerTotal) {
     game.status = "player-win";
     game.message = "You win.";
-    player.balance += BET;
+    player.balance += game.bet;
   } else {
     game.status = "push";
     game.message = "Push.";
@@ -91,6 +91,7 @@ function serialize(game) {
   return {
     status: game.status,
     message: game.message,
+    bet: game.bet,
     playerHand: game.playerHand,
     playerTotal: handValue(game.playerHand),
     dealerHand: reveal ? game.dealerHand : [game.dealerHand[0], { hidden: true }],
@@ -110,7 +111,14 @@ app.post("/api/new-game", (req, res) => {
     player = { balance: STARTING_BALANCE };
     players.set(sessionId, player);
   }
-  player.game = newGame(player);
+
+  const requestedBet = req.body && req.body.bet;
+  const bet = requestedBet === undefined ? DEFAULT_BET : Number(requestedBet);
+  if (!Number.isInteger(bet) || bet < 1 || bet > player.balance) {
+    return res.status(400).json({ error: `Bet must be a whole number between 1 and your balance ($${player.balance})` });
+  }
+
+  player.game = newGame(player, bet);
   res.json({ sessionId, state: serialize(player.game), balance: player.balance });
 });
 
@@ -125,7 +133,7 @@ app.post("/api/hit", (req, res) => {
   if (total > 21) {
     game.status = "player-bust";
     game.message = "Bust! Dealer wins.";
-    player.balance -= BET;
+    player.balance -= game.bet;
   } else if (total === 21) {
     dealerPlay(game, player);
   }
